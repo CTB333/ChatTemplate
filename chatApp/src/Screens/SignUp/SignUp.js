@@ -1,5 +1,7 @@
 import React, {useLayoutEffect, useState, useEffect, useRef} from 'react';
 
+import {useSelector, useDispatch} from 'react-redux';
+import {connectAccount} from '../../redux/userReducer';
 import Socket from '../../redux/api';
 
 import {StyleSheet, Text, View, TextInput, StatusBar} from 'react-native';
@@ -9,6 +11,9 @@ import Modal from '../../components/Modal';
 
 const SignUp = ({navigation}) => {
   const mount = useRef(false);
+
+  const dispatch = useDispatch();
+  const user = useSelector(state => state.userReducer);
 
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
@@ -22,10 +27,14 @@ const SignUp = ({navigation}) => {
   }, []);
 
   useEffect(() => {
-    Socket.on('sign_up_success', data => {
-      console.log('Redux this shit');
-      console.log(data);
+    if (user?.id) {
       navigation.replace('Rooms');
+    }
+  }, [user]);
+
+  useEffect(() => {
+    Socket.on('sign_up_success', data => {
+      dispatch(connectAccount(data));
     });
   }, [Socket]);
 

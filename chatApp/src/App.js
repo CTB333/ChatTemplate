@@ -35,7 +35,9 @@ const App = () => {
       try {
         let id = await AsyncStorage.getItem('id');
         Socket.emit('login_id', {id});
-      } catch (e) {}
+      } catch (e) {
+        console.log('No Id Found');
+      }
     };
 
     // Socket.emit('master_reset_rooms');
@@ -47,10 +49,12 @@ const App = () => {
     Socket.on('update_rooms', data => {
       let {rooms, id} = data;
       let {userReducer: user} = store.getState();
-      if (user && user.id == id.toString()) {
+      console.log('Update Rooms Reveived');
+      if (user?.id == id.toString()) {
         console.log('Updating ', user.userName, "'s rooms");
         store.dispatch(updateRooms(rooms));
       }
+      console.log();
     });
   }, [Socket]);
 

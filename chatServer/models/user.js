@@ -11,6 +11,7 @@ const UserSchema = new Schema({
     new Schema({
       roomId: mongoose.Types.ObjectId,
       roomName: String,
+      newMsg: Boolean,
       other: new Schema({
         userId: String,
         userName: String,
@@ -22,6 +23,5 @@ const UserSchema = new Schema({
 UserSchema.index({ userName: "text" });
 
 const User = mongoose.model("User", UserSchema);
-User.createIndexes();
 
 module.exports = User;

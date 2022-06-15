@@ -14,15 +14,16 @@ app.use(cors());
 
 const mongoUrl = "mongodb://localhost:27017/Chats";
 
+let DB = null;
 mongoose
   .connect(mongoUrl, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
   .then((db) => {
-    console.log("Database Connected");
-    // roomControl.masterResetRooms();
-    // logMessage("Master Reset Rooms done");
+    console.log("mongo connected");
+    console.log();
+    DB = db;
   })
   .catch(() => {
     console.log("Database Failed");
@@ -50,6 +51,7 @@ io.on("connect", async (socket) => {
       res.id = user._id;
       socket.data.user = user;
       socket.emit("login_id_success", res);
+      logMessage(`${socket.id} logged in as ${user.userName}`);
     } catch (e) {
       socket.emit("login_id_err");
     }
@@ -79,8 +81,9 @@ io.on("connect", async (socket) => {
       res.userName = user.userName;
       res.rooms = user.rooms;
       res.id = user._id;
-      socket.data.user = user;
+      socket.data.user = user.toObject();
       socket.emit("login_success", res);
+      logMessage(`${socket.id} logged in as ${user.userName}`);
     } catch (e) {
       res.err = e.message;
       socket.emit("login_err", res);
@@ -89,6 +92,13 @@ io.on("connect", async (socket) => {
 
   socket.on("logout", () => {
     socket.data = {};
+  });
+
+  socket.on("disconnect", async () => {
+    try {
+      await roomControl.disconnectUserFromRoom(socket.data.user.id);
+    } catch (e) {}
+    logMessage(`${socket.id} disconnected`);
   });
 
   socket.on("sign_up", async (data) => {
@@ -111,7 +121,7 @@ io.on("connect", async (socket) => {
       res.userName = user.userName;
       res.rooms = user.rooms;
       res.id = user._id;
-      socket.data.user = user;
+      socket.data.user = user.toObject();
       socket.emit("sign_up_success", res);
     } catch (e) {
       socket.emit("sign_up_err", res);
@@ -133,21 +143,29 @@ io.on("connect", async (socket) => {
   });
 
   socket.on("connect_users", async (data) => {
+    // update the connected users on the room
+
     let { id1, id2, roomId } = data;
     try {
-      let r = null;
+      let roomDoc = null;
       let created = false;
       let user1 = null;
       let user2 = null;
 
       if (roomId) {
-        r = await roomControl.findRoomById(roomId);
+        try {
+          roomDoc = await roomControl.findRoomById(roomId);
+        } catch (e) {
+          roomDoc = await roomControl.createNewRoom(id1, id2);
+        }
       } else {
-        r = await roomControl.createNewRoom(id1, id2);
+        roomDoc = await roomControl.createNewRoom(id1, id2);
         created = true;
       }
 
-      let room = roomControl.roomObj(r);
+      roomDoc = await roomControl.openRoom(id1, roomDoc._id);
+
+      let room = roomControl.roomObj(roomDoc);
 
       if (created) {
         user1 = await userControl.findUser(id1);
@@ -161,19 +179,47 @@ io.on("connect", async (socket) => {
       socket.join(room.name);
       socket.emit("connect_users_success", { room });
       logMessage(
-        `${socket.id} - ${created ? "created" : "joined"} ${room.name}`
+        `${created ? "created" : "joined"} : ${room.name} : ${JSON.stringify(
+          room.connected
+        )}`
       );
     } catch (e) {
       console.log(e.message);
     }
   });
 
+  socket.on("get_user_data", async (data) => {
+    let { id } = data;
+    console.log(id);
+    try {
+      let { id: userId, userName } = await userControl.findUserObj(
+        id.toString()
+      );
+      socket.emit("get_user_data_success", { userId, userName });
+    } catch (e) {
+      console.log("Error in get_user_name: " + e);
+    }
+  });
+
+  socket.on("leave_room", async (data) => {
+    let { id, roomId } = data;
+    console.log("Leave Room");
+    console.log();
+    try {
+      await roomControl.closeRoom(id, roomId);
+      let user = await userControl.findUser(id);
+      io?.emit("update_rooms", { id: id, rooms: user.rooms });
+    } catch (e) {
+      console.log("leaving room failed: " + e);
+    }
+  });
+
   socket.on("msg_room", async (data) => {
     let { roomName, message } = data;
-    console.log("Message");
     try {
-      let room = await roomControl.messageRoom(roomName, message);
-      let { messages, name } = room;
+      let room = await roomControl.messageRoom(roomName, message, io);
+      let messages = room.messages;
+      let name = room.name;
       io.to(name).emit("msg_room_success", { messages });
       logMessage(`Message Sent To - ${name}`, false);
     } catch (e) {
@@ -186,6 +232,7 @@ io.on("connect", async (socket) => {
     let { roomId } = data;
 
     try {
+      logMessage("Get Room Message Updates Read");
       let room = roomControl.roomObj(await roomControl.findRoomById(roomId));
       io.to(room.name).emit("msg_room_success", { messages: room.messages });
     } catch (e) {}
@@ -198,10 +245,6 @@ io.on("connect", async (socket) => {
     } catch (e) {
       logMessage("Master Reset Error");
     }
-  });
-
-  socket.on("disconnect", () => {
-    logMessage(`${socket.id} disconnected`);
   });
 });
 

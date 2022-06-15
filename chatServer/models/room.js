@@ -3,18 +3,16 @@ const Schema = mongoose.Schema;
 
 const roomSchema = new Schema({
   name: String,
-  users: [
-    new Schema({
-      userId: mongoose.Types.ObjectId,
-      userName: String,
-    }),
-  ],
-  connected: [mongoose.Types.ObjectId],
+  users: [String],
+  connected: [String],
   messages: [
     new Schema({
       text: String,
-      userId: String,
+      from: String,
+      to: String,
       date: String,
+      read: Boolean,
+      readAt: String,
     }),
   ],
 });

@@ -32,7 +32,7 @@ const Rooms = ({navigation}) => {
   const [results, setResults] = useState([]);
   const [friends, setFriends] = useState([]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
         <IconButton
@@ -65,7 +65,7 @@ const Rooms = ({navigation}) => {
       ),
       headerTitle: user.userName,
     });
-  }, [navigation, searchPage]);
+  }, [navigation, searchPage, user]);
 
   useEffect(() => {
     mounted.current = true;
@@ -102,6 +102,7 @@ const Rooms = ({navigation}) => {
 
     Socket.on('connect_users_success', data => {
       let {room} = data;
+      console.log('Connected');
       dispatch(openRoom(room));
     });
   }, [Socket]);
@@ -114,6 +115,7 @@ const Rooms = ({navigation}) => {
           roomId: room.roomId,
           userName: room.other.userName,
           userId: room.other.userId,
+          newMsg: room.newMsg,
         };
         friendArr.push(freindObj);
       }
@@ -156,7 +158,12 @@ const Rooms = ({navigation}) => {
             };
 
             return (
-              <UserItem key={key} title={item.userName} onPress={onPress} />
+              <UserItem
+                key={key}
+                title={item.userName}
+                banner={item.newMsg}
+                onPress={onPress}
+              />
             );
           }}
         />

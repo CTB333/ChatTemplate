@@ -38,7 +38,6 @@ const loginUser = async (userName, password) => {
 
 const findUser = async (id) => {
   let user = await User.findById(id);
-
   if (user) {
     return user;
   }
@@ -102,8 +101,18 @@ const addRoom = async (userId, otherId, room) => {
   user = await user.save();
   otherGuy = await otherGuy.save();
   console.log("Room Synced");
-  console.log(user);
-  console.log();
+};
+
+const findRoomIndex = async (id, roomId) => {
+  let user = await findUser(id);
+  let rooms = user.rooms;
+  let i = 0;
+  for (let room of rooms) {
+    if (room.roomId.toString() == roomId.toString()) {
+      return i;
+    }
+    i++;
+  }
 };
 
 //users.find({ $text: { $search: "B", $caseSensitive: false } }).pretty()
@@ -118,4 +127,5 @@ module.exports = {
   findUserObj,
   searchUserNames,
   addRoom,
+  findRoomIndex,
 };
